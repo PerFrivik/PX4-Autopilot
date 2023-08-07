@@ -46,6 +46,9 @@
 #include <mathlib/mathlib.h>
 #include <cstdlib>
 
+#include "../EKF/python/ekf_derivation/generated/compute_yaw_321_innov_var_and_h.h"
+#include "../EKF/python/ekf_derivation/generated/compute_yaw_312_innov_var_and_h.h"
+
 void Ekf::resetHorizontalVelocityToZero()
 {
 	_information_events.flags.reset_vel_to_zero = true;
@@ -888,6 +891,16 @@ Vector3f Ekf::calcRotVecVariances() const
 	sym::QuatVarToRotVar(getStateAtFusionHorizonAsVector(), P, FLT_EPSILON, &rot_var);
 	return rot_var;
 }
+
+float Ekf::getYawVar() const
+{
+	Vector24f H_YAW;
+	float yaw_var = 0.f;
+	computeYawInnovVarAndH(0.f, yaw_var, H_YAW);
+
+	return yaw_var;
+}
+
 
 // initialise the quaternion covariances using rotation vector variances
 // do not call before quaternion states are initialised
