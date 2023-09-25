@@ -386,6 +386,9 @@ RoverPositionControl::Run()
 
 	if (_vehicle_angular_velocity_sub.update(&angular_velocity)) {
 
+		PX4_INFO("Your message here");
+
+
 		/* check vehicle control mode for changes to publication state */
 		vehicle_control_mode_poll();
 		attitude_setpoint_poll();
