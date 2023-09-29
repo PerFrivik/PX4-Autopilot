@@ -75,6 +75,12 @@
 #include <uORB/topics/vehicle_thrust_setpoint.h>
 #include <uORB/topics/vehicle_torque_setpoint.h>
 
+// Seperate include
+
+#include "PrintThrottle.h"
+
+
+
 using matrix::Dcmf;
 
 using namespace time_literals;
@@ -170,6 +176,25 @@ private:
 	float _throttle_control{0.f};
 	float _yaw_control{0.f};
 
+	// float _counter{0.0};
+
+	// PrintThrottle posThrottle{100};
+	// PrintThrottle posThrottle2{200};
+
+	PrintThrottle modeThrottle{400};
+	PrintThrottle manualposThrottle{400};
+	PrintThrottle attitudeThrottle{400};
+	PrintThrottle velocityThrottle{400};
+	PrintThrottle positionThrottle{400};
+	PrintThrottle endThrottle{400};
+	PrintThrottle attitudecontrolThrottle{400};
+	PrintThrottle manual_controlThrottle{400};
+
+	PrintThrottle t1{400};
+	PrintThrottle t2{400};
+	PrintThrottle t3{100};
+
+
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::GND_L1_PERIOD>) _param_l1_period,
 		(ParamFloat<px4::params::GND_L1_DAMPING>) _param_l1_damping,
@@ -202,9 +227,11 @@ private:
 
 	void		position_setpoint_triplet_poll();
 	void		attitude_setpoint_poll();
+	void 		rates_setpoint_poll();
 	void		vehicle_control_mode_poll();
 	void 		vehicle_attitude_poll();
 	void		manual_control_setpoint_poll();
+
 
 	/**
 	 * Control position.

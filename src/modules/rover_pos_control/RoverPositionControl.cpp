@@ -113,6 +113,11 @@ RoverPositionControl::vehicle_control_mode_poll()
 void
 RoverPositionControl::manual_control_setpoint_poll()
 {
+
+	// if(manual_controlThrottle.shouldPrint()){
+	// 	PX4_DEBUG("In manual control setpoint poll ee");
+	// }
+
 	if (_control_mode.flag_control_manual_enabled) {
 		if (_manual_control_setpoint_sub.copy(&_manual_control_setpoint)) {
 			float dt = math::constrain(hrt_elapsed_time(&_manual_setpoint_last_called) * 1e-6f,  0.0002f, 0.04f);
@@ -193,10 +198,15 @@ bool
 RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 				       const matrix::Vector3f &ground_speed, const position_setpoint_triplet_s &pos_sp_triplet)
 {
+
+	// if(positionThrottle.shouldPrint()){
+	// 	PX4_DEBUG("In control position");
+	// }
+
 	float dt = 0.01; // Using non zero value to a avoid division by zero
 
 	if (_control_position_last_called > 0) {
-		dt = hrt_elapsed_time(&_control_position_last_called) * 1e-6f;
+		dt = hrt_elapsed_time(&_control_position_last_called) * 1e-6f; // the number is for converting microseconds to seconds
 	}
 
 	_control_position_last_called = hrt_absolute_time();
@@ -228,7 +238,12 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 		if (_param_speed_control_mode.get() == 1) {
 			/* control the speed in closed loop */
 
+			if(t1.shouldPrint()){
+				PX4_DEBUG("control mode is == 1");
+			}
+
 			float mission_target_speed = _param_gndspeed_trim.get();
+
 
 			if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_speed) &&
 			    _pos_sp_triplet.current.cruising_speed > 0.1f) {
@@ -250,6 +265,11 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 			mission_throttle = math::constrain(mission_throttle, _param_throttle_min.get(), _param_throttle_max.get());
 
 		} else {
+
+			if(t2.shouldPrint()){
+				PX4_DEBUG("control mode is not == 1");
+			}
+
 			/* Just control throttle in open loop */
 			if (PX4_ISFINITE(_pos_sp_triplet.current.cruising_throttle) &&
 			    _pos_sp_triplet.current.cruising_throttle > 0.01f) {
@@ -267,6 +287,11 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 					_pos_ctrl_state = STOPPING;  // We are closer than loiter radius to waypoint, stop.
 
 				} else {
+
+					// if(t3.shouldPrint()){
+					// 	PX4_DEBUG("doing yaw control");
+					// }
+
 					Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
 					Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
 					Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0),
@@ -279,8 +304,15 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 					float desired_theta = (0.5f * M_PI_F) - atan2f(desired_r, _param_wheel_base.get());
 					float control_effort = (desired_theta / _param_max_turn_angle.get()) * sign(
 								       _gnd_control.nav_lateral_acceleration_demand());
-					control_effort = math::constrain(control_effort, -1.0f, 1.0f);
+					control_effort = math::constrain(control_effort, -0.1f, 0.1f); // changed control effort from 1 to 0.1! temporary
 					_yaw_control = control_effort;
+
+					if(t3.shouldPrint()){
+						// PX4_DEBUG("doing yaw control");
+						PX4_DEBUG("yaw control %f",(double)_yaw_control);
+						PX4_DEBUG("mission throttle %f",(double)_throttle_control);
+						PX4_DEBUG("");
+					}
 				}
 			}
 			break;
@@ -317,6 +349,12 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 void
 RoverPositionControl::control_velocity(const matrix::Vector3f &current_velocity)
 {
+
+
+	// if(velocityThrottle.shouldPrint()){
+	// 	PX4_DEBUG("In control velocity");
+	// }
+
 	const Vector3f desired_velocity{_trajectory_setpoint.velocity};
 	float dt = 0.01; // Using non zero value to a avoid division by zero
 
@@ -361,6 +399,10 @@ RoverPositionControl::control_velocity(const matrix::Vector3f &current_velocity)
 void
 RoverPositionControl::control_attitude(const vehicle_attitude_s &att, const vehicle_attitude_setpoint_s &att_sp)
 {
+	// if(attitudeThrottle.shouldPrint()){
+	// 	PX4_DEBUG("In control Attitude");
+	// }
+
 	// quaternion attitude control law, qe is rotation from q to qd
 	const Quatf qe = Quatf(att.q).inversed() * Quatf(att_sp.q_d);
 	const Eulerf euler_sp = qe;
@@ -370,9 +412,16 @@ RoverPositionControl::control_attitude(const vehicle_attitude_s &att, const vehi
 
 	_yaw_control = control_effort;
 
+	// PX4_DEBUG("test");
+	// PX4_INFO("TEst2");
+
 	const float control_throttle = att_sp.thrust_body[0];
 
 	_throttle_control =  math::constrain(control_throttle, 0.0f, 1.0f);
+
+	// if(attitudecontrolThrottle.shouldPrint()){
+	// 	PX4_DEBUG("yaw control and control throttle: ", (double)_yaw_control, (double)control_throttle);
+	// }
 
 }
 
@@ -386,9 +435,12 @@ RoverPositionControl::Run()
 
 	if (_vehicle_angular_velocity_sub.update(&angular_velocity)) {
 
+		// PX4_DEBUG("Test");
+
 		/* check vehicle control mode for changes to publication state */
 		vehicle_control_mode_poll();
 		attitude_setpoint_poll();
+		// rates_setpoint_poll();
 		vehicle_attitude_poll();
 		manual_control_setpoint_poll();
 
@@ -400,11 +452,26 @@ RoverPositionControl::Run()
 		/* only run controller if position changed */
 		if (_local_pos_sub.update(&_local_pos)) {
 
+			// if (posThrottle.shouldPrint()) {
+        		// 	PX4_DEBUG("Position update");
+        		// 	PX4_DEBUG("");
+
+    			// }
+
+			// if (posThrottle2.shouldPrint()) {
+        		// 	PX4_DEBUG("Position update 2");
+        		// 	PX4_DEBUG("");
+
+    			// }
+
 			/* load local copies */
 			_global_pos_sub.update(&_global_pos);
 
+
+			// Gets new setpoints
 			position_setpoint_triplet_poll();
 
+			// Global projection
 			if (!_global_local_proj_ref.isInitialized()
 			    || (_global_local_proj_ref.getProjectionReferenceTimestamp() != _local_pos.ref_timestamp)) {
 
@@ -431,7 +498,15 @@ RoverPositionControl::Run()
 			matrix::Vector2d current_position(_global_pos.lat, _global_pos.lon);
 			matrix::Vector3f current_velocity(_local_pos.vx, _local_pos.vy, _local_pos.vz);
 
+			// if(modeThrottle.shouldPrint()){
+			// 	PX4_DEBUG("Mode: ", _control_mode_current);
+			// }
+
 			if (!_control_mode.flag_control_manual_enabled && _control_mode.flag_control_position_enabled) {
+
+				// if(manualposThrottle.shouldPrint()){
+				// 	PX4_DEBUG("Manual and position mode are enabled");
+				// }
 
 				if (control_position(current_position, ground_speed, _pos_sp_triplet)) {
 
@@ -460,6 +535,11 @@ RoverPositionControl::Run()
 				}
 
 			} else if (!_control_mode.flag_control_manual_enabled && _control_mode.flag_control_velocity_enabled) {
+
+				// if(manualposThrottle.shouldPrint()){
+				// 	PX4_DEBUG("Manual and velocity mode are enabled");
+				// }
+
 				_trajectory_setpoint_sub.update(&_trajectory_setpoint);
 				control_velocity(current_velocity);
 			}
@@ -491,9 +571,14 @@ RoverPositionControl::Run()
 			v_torque_sp.xyz[0] = 0.f;
 			v_torque_sp.xyz[1] = 0.f;
 			v_torque_sp.xyz[2] = _yaw_control;
+			// v_torque_sp.xyz[2] = 0.f;
 			_vehicle_torque_setpoint_pub.publish(v_torque_sp);
 		}
 	}
+
+		// if(endThrottle.shouldPrint()){
+		// PX4_DEBUG("Manual and position mode are enabled");
+		// }
 }
 
 int RoverPositionControl::task_spawn(int argc, char *argv[])
