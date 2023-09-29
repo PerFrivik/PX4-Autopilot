@@ -99,7 +99,7 @@ void RoverPositionControl::parameters_update(bool force)
 				   _param_speed_d.get(),
 				   _param_speed_imax.get(),
 				   _param_gndspeed_max.get());
-		_rate_control.setGains(matrix::Vector3f(0.0, 0.0, _param_rate_p.get()), matrix::Vector3f(0.0, 0.0, _param_rate_i.get()),
+		_rate_control.setPidGains(matrix::Vector3f(0.0, 0.0, _param_rate_p.get()), matrix::Vector3f(0.0, 0.0, _param_rate_i.get()),
 				       matrix::Vector3f(0.0, 0.0, _param_rate_d.get()));
 		_rate_control.setFeedForwardGain(matrix::Vector3f(0.0, 0.0, _param_rate_ff.get()));
 		_rate_control.setIntegratorLimit(matrix::Vector3f(0.0, 0.0, _param_rate_imax.get()));
