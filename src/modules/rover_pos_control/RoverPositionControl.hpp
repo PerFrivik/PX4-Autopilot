@@ -146,6 +146,14 @@ private:
 	/* Pid controller for the speed. Here we assume we can control airspeed but the control variable is actually on
 	 the throttle. For now just assuming a proportional scaler between controlled airspeed and throttle output.*/
 	PID_t _speed_ctrl{};
+	PID_t _yaw_ctrl{};
+
+	float roll{0.0f};
+	float pitch{0.0f};
+	float yaw{0.0f};
+
+
+
 
 	// estimator reset counters
 	uint8_t _pos_reset_counter{0};		// captures the number of times the estimator has reset the horizontal position
@@ -193,6 +201,7 @@ private:
 	PrintThrottle t1{400};
 	PrintThrottle t2{400};
 	PrintThrottle t3{100};
+	PrintThrottle t4{800};
 
 
 	DEFINE_PARAMETERS(

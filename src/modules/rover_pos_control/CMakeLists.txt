@@ -33,9 +33,13 @@
 px4_add_module(
 	MODULE modules__rover_pos_control
 	MAIN rover_pos_control
+	COMPILE_FLAGS
+		${MAX_CUSTOM_OPT_LEVEL}
+		-DDEBUG_BUILD
 	SRCS
 		RoverPositionControl.cpp
 		RoverPositionControl.hpp
+
 	DEPENDS
 		l1
 		pid

@@ -232,7 +232,7 @@ PARAM_DEFINE_FLOAT(GND_SPEED_IMAX, 1.0f);
  * @increment 0.005
  * @group Rover Position Control
  */
-PARAM_DEFINE_FLOAT(GND_SPEED_THR_SC, 1.0f);
+PARAM_DEFINE_FLOAT(GND_SPEED_THR_SC, 20.0f);
 
 /**
  * Trim ground speed

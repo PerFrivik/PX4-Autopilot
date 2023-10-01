@@ -281,41 +281,90 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 		float dist_target = get_distance_to_next_waypoint(_global_pos.lat, _global_pos.lon,
 				    (double)curr_wp(0), (double)curr_wp(1)); // pos_sp_triplet.current.lat, pos_sp_triplet.current.lon);
 
+		if(t4.shouldPrint()){
+			PX4_DEBUG("control state: %f", _pos_ctrl_state);
+		}
+
 		switch (_pos_ctrl_state) {
+		// case GOTO_WAYPOINT: {
+		// 		if (dist_target < _param_nav_loiter_rad.get()) {
+		// 			_pos_ctrl_state = STOPPING;  // We are closer than loiter radius to waypoint, stop.
+
+		// 		} else {
+
+		// 			// if(t3.shouldPrint()){
+		// 			// 	PX4_DEBUG("doing yaw control");
+		// 			// }
+
+		// 			Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
+		// 			Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
+		// 			Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0),
+		// 						 prev_wp(1));
+		// 			_gnd_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed_2d);
+
+		// 			_throttle_control = mission_throttle;
+
+		// 			float desired_r = ground_speed_2d.norm_squared() / math::abs_t(_gnd_control.nav_lateral_acceleration_demand());
+		// 			float desired_theta = (0.5f * M_PI_F) - atan2f(desired_r, _param_wheel_base.get());
+		// 			float control_effort = (desired_theta / _param_max_turn_angle.get()) * sign(
+		// 						       _gnd_control.nav_lateral_acceleration_demand());
+		// 			control_effort = math::constrain(control_effort, -0.1f, 0.1f); // changed control effort from 1 to 0.1! temporary
+		// 			_yaw_control = control_effort;
+
+		// 			// Compute airspeed control out and just scale it as a constant TEMPORARY ADD
+		// 			// mission_throttle = _param_throttle_speed_scaler.get()
+		// 			//    * pid_calculate(&_speed_ctrl, mission_target_speed, x_vel, x_acc, dt);
+
+		// 			if(t3.shouldPrint()){
+		// 				// PX4_DEBUG("doing yaw control");
+		// 				PX4_DEBUG("yaw control %f",(double)_yaw_control);
+		// 				PX4_DEBUG("mission throttle %f",(double)_throttle_control);
+		// 				PX4_DEBUG("");
+		// 			}
+		// 		}
+		// 	}
+		// 	break;
 		case GOTO_WAYPOINT: {
-				if (dist_target < _param_nav_loiter_rad.get()) {
-					_pos_ctrl_state = STOPPING;  // We are closer than loiter radius to waypoint, stop.
+		if (dist_target < _param_nav_loiter_rad.get()) {
+			_pos_ctrl_state = STOPPING;  // We are closer than loiter radius to waypoint, stop.
+		} else {
+			Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
+			Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
+			// Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0), prev_wp(1));
 
-				} else {
+			// q = _vehicle_att.q;
 
-					// if(t3.shouldPrint()){
-					// 	PX4_DEBUG("doing yaw control");
-					// }
+			// float yaw = atan2(2.0 * (q[0] * q[3] + q[1] * q[2]), 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]));
 
-					Vector2f curr_pos_local{_local_pos.x, _local_pos.y};
-					Vector2f curr_wp_local = _global_local_proj_ref.project(curr_wp(0), curr_wp(1));
-					Vector2f prev_wp_local = _global_local_proj_ref.project(prev_wp(0),
-								 prev_wp(1));
-					_gnd_control.navigate_waypoints(prev_wp_local, curr_wp_local, curr_pos_local, ground_speed_2d);
+			yaw = atan2(2.0 * ((double)(_vehicle_att.q[0] * _vehicle_att.q[3] + _vehicle_att.q[1] * _vehicle_att.q[2])),
+                      		(1.0 - 2.0 * (double)(_vehicle_att.q[2] * _vehicle_att.q[2] + _vehicle_att.q[3] * _vehicle_att.q[3])));
 
-					_throttle_control = mission_throttle;
+			// Compute desired yaw setpoint (sp)
+			float sp = atan2f(curr_wp_local(1) - curr_pos_local(1), curr_wp_local(0) - curr_pos_local(0)); // angle to the next waypoint
+			sp = (2*(sp - yaw)); // error between desired yaw and current yaw
 
-					float desired_r = ground_speed_2d.norm_squared() / math::abs_t(_gnd_control.nav_lateral_acceleration_demand());
-					float desired_theta = (0.5f * M_PI_F) - atan2f(desired_r, _param_wheel_base.get());
-					float control_effort = (desired_theta / _param_max_turn_angle.get()) * sign(
-								       _gnd_control.nav_lateral_acceleration_demand());
-					control_effort = math::constrain(control_effort, -0.1f, 0.1f); // changed control effort from 1 to 0.1! temporary
-					_yaw_control = control_effort;
+			// Compute control effort using PID controller
+			// float control_effort = pid_calculate(&_yaw_ctrl, sp, yaw, val_dot, dt);
 
-					if(t3.shouldPrint()){
-						// PX4_DEBUG("doing yaw control");
-						PX4_DEBUG("yaw control %f",(double)_yaw_control);
-						PX4_DEBUG("mission throttle %f",(double)_throttle_control);
-						PX4_DEBUG("");
-					}
-				}
+			// Ensure control_effort is within allowable limits, if necessary
+			sp = math::constrain(sp, -1.0f, 1.0f); // Replace MAX_YAW_RATE with the actual max yaw rate of your vehicle
+
+			// Assign control_effort to _yaw_control
+			_yaw_control = sp;
+
+			_throttle_control = mission_throttle;
+
+			mission_throttle = _param_throttle_speed_scaler.get();
+
+			if (t3.shouldPrint()) {
+				PX4_DEBUG("yaw  %f", (double)yaw);
+				// PX4_DEBUG("sp %f", (double)sp);
+				PX4_DEBUG("control output %f", (double)sp);
+				PX4_DEBUG("");
 			}
-			break;
+			}
+		}
+		break;
 
 		case STOPPING: {
 				_yaw_control = 0.0f;
