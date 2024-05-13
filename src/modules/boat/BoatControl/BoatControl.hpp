@@ -85,8 +85,8 @@ private:
 	Vector2f _vehicle_speed{0.f, 0.f};
 	vehicle_local_position_s _vehicle_local_position{};
 
-	PID_t _pid_angular_velocity; ///< The PID controller for yaw rate.
-	PID_t _pid_speed; ///< The PID controller for velocity.
+	PID_t _pid_angular_velocity;
+	PID_t _pid_speed;
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::BT_SPD_P>) _param_bt_spd_p,

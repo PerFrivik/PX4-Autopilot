@@ -85,6 +85,5 @@ matrix::Vector2f BoatKinematics::computeInverseKinematics(float linear_velocity_
 	float throttle = linear_velocity_x / _max_speed;
 	float rudder_angle = yaw_rate / _max_angular_velocity;
 
-	// Calculate the left and right wheel speeds
 	return Vector2f(throttle, rudder_angle);
 }

@@ -119,19 +119,17 @@ private:
 	position_setpoint_triplet_s _position_setpoint_triplet{};
 	vehicle_global_position_s _vehicle_global_position{};
 
-	GuidanceState _currentState; ///< The current state of guidance.
+	GuidanceState _currentState;
 
-	float _desired_angular_velocity; ///< The desired angular velocity.
+	float _desired_angular_velocity;
 
-	float _max_speed; ///< The maximum speed.
-	float _max_angular_velocity; ///< The maximum angular velocity.
+	float _max_speed;
+	float _max_angular_velocity;
 
-	matrix::Vector2d _current_waypoint; ///< The current waypoint.
+	matrix::Vector2d _current_waypoint;
 
-	VelocitySmoothing _forwards_velocity_smoothing; ///< The velocity smoothing for forward motion.
-	PositionSmoothing _position_smoothing; ///< The position smoothing.
-
-	PID_t _heading_p_controller; ///< The PID controller for yaw rate.
+	VelocitySmoothing _forwards_velocity_smoothing;
+	PositionSmoothing _position_smoothing;
 
 	ECL_L1_Pos_Controller _l1_guidance;
 
@@ -140,18 +138,17 @@ private:
 	MapProjection _global_local_proj_ref{};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RDD_P_HEADING>) _param_rdd_p_gain_heading,
 		(ParamFloat<px4::params::NAV_ACC_RAD>) _param_nav_acc_rad,
-		(ParamFloat<px4::params::RDD_MAX_JERK>) _param_rdd_max_jerk,
-		(ParamFloat<px4::params::RDD_MAX_ACCEL>) _param_rdd_max_accel,
 
 		(ParamFloat<px4::params::BT_L1_PERIOD>) _param_bt_l1_period,
 		(ParamFloat<px4::params::BT_L1_DAMPING>) _param_bt_l1_damping,
 
 		(ParamFloat<px4::params::BT_MAX_HERR>) _param_bt_max_heading_error,
 		(ParamFloat<px4::params::BT_MIN_HERR>) _param_bt_min_heading_error,
+
 		(ParamFloat<px4::params::BT_SPD_MAX>) _param_bt_spd_max,
 		(ParamFloat<px4::params::BT_SPD_MIN>) _param_bt_spd_min,
+
 		(ParamFloat<px4::params::BT_SPD_CRUISE>) _param_bt_spd_cruise,
 		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad
 	)

@@ -42,8 +42,6 @@ BoatGuidance::BoatGuidance(ModuleParams *parent) : ModuleParams(parent)
 	updateParams();
 
 	_currentState = GuidanceState::DRIVING;
-
-	pid_init(&_heading_p_controller, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
 void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_local_position,
@@ -71,7 +69,6 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 
 	const Vector2f current_waypoint_local_position = _global_local_proj_ref.project(current_waypoint(0),
 			current_waypoint(1));
-	// const Vector2f next_waypoint_local_position = _global_local_proj_ref.project(next_waypoint(0), next_waypoint(1));
 	const Vector2f previous_waypoint_local_position = _global_local_proj_ref.project(previous_waypoint(0),
 			previous_waypoint(1));
 	const Vector2f local_position = Vector2f(vehicle_local_position.x, vehicle_local_position.y);
@@ -85,12 +82,7 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 				next_waypoint(1));
 	float heading_error = matrix::wrap_pi(desired_heading - yaw);
 
-	// printf("desired heading: %f\n", (double)desired_heading);
-	// printf("yaw: %f\n", (double)yaw);
-	// printf("heading error: %f\n", (double)heading_error);
-
 	if (_current_waypoint != current_waypoint) {
-		// printf("switching back to driving\n");
 		_currentState = GuidanceState::DRIVING;
 	}
 
@@ -98,9 +90,6 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 	if ((current_waypoint == next_waypoint) && distance_to_next_wp <= _param_nav_acc_rad.get()) {
 		_currentState = GuidanceState::GOAL_REACHED;
 	}
-
-	_forwards_velocity_smoothing.updateDurations(_max_speed);
-	_forwards_velocity_smoothing.updateTraj(dt);
 
 	float speed_interpolation = 0.f;
 
@@ -110,48 +99,25 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 				      _param_bt_spd_min.get());
 	}
 
-	// printf("speed interpolation: %f\n", (double)speed_interpolation);
-
 	float desired_speed = math::constrain(speed_interpolation, _param_bt_spd_min.get(), _max_speed);
-
-	// printf("desired_speed: %f\n", (double)desired_speed);
 
 	switch (_currentState) {
 	case GuidanceState::DRIVING: {
 
-			// _forwards_velocity_smoothing.updateDurations(_max_speed);
-			// _forwards_velocity_smoothing.updateTraj(dt);
-
-			// float speed_interpolation = math::interpolate<float>(abs(heading_error), _param_bt_min_heading_error.get(),
-			// 			    _param_bt_max_heading_error.get(), _param_bt_spd_cruise.get(),
-			// 			    _param_bt_spd_min.get());
-
-			// desired_speed = math::constrain(speed_interpolation, _param_bt_spd_min.get(), _max_speed);
-
 			if (PX4_ISFINITE(previous_waypoint(0)) && PX4_ISFINITE(previous_waypoint(1))) {
 				_l1_guidance.navigate_waypoints(previous_waypoint_local_position, current_waypoint_local_position, local_position,
 								local_velocity);
-				// printf("driving\n");
 
 			} else {
 				_previous_local_position = local_position;
 				_currentState = GuidanceState::DRIVING_TO_POINT;
-				// printf("switched to driving to point\n");
 			}
-
-			// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
-			// 			    _max_angular_velocity);
 
 			break;
 		}
 
 	case GuidanceState::DRIVING_TO_POINT:
-		// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
-		// 			    _max_angular_velocity);
-		// printf("driving to point\n");
-		// printf("Previous local position: %f, %f\n", (double)_previous_local_position(0), (double)_previous_local_position(1));
-		// printf("Current waypoint local position: %f, %f\n", (double)current_waypoint_local_position(0),
-		//        (double)current_waypoint_local_position(1));
+
 		_l1_guidance.navigate_waypoints(_previous_local_position, current_waypoint_local_position, local_position,
 						local_velocity);
 		desired_speed = _param_bt_spd_cruise.get();
@@ -161,24 +127,12 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 		// temporary till I find a better way to stop the vehicle
 		desired_speed = 0.f;
 		heading_error = 0.f;
-		// angular_velocity = 0.f;
 		_desired_angular_velocity = 0.f;
-		// printf("angular velocity: %f \n", (double)angular_velocity);
 		break;
 	}
 
 	_desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
 				    _max_angular_velocity);
-
-	// Compute the desired angular velocity relative to the heading error, to steer the vehicle towards the next waypoint.
-	// float angular_velocity_pid = pid_calculate(&_heading_p_controller, heading_error, angular_velocity, 0,
-	// 			     dt) + heading_error;
-
-	// angular_velocity = angular_velocity + _desired_angular_velocity;
-
-	// printf("desired speed: %f\n", (double)desired_speed);
-	// printf("desired angular velocity: %f\n", (double)_desired_angular_velocity);
-	// printf("angular velocity: %f \n", (double)angular_velocity);
 
 	boat_setpoint_s output{};
 	output.speed = math::constrain(desired_speed, -_max_speed, _max_speed);
@@ -187,10 +141,6 @@ void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_l
 	output.timestamp = hrt_absolute_time();
 
 	_boat_setpoint_pub.publish(output);
-
-	// printf("Current waypoint (global): %f, %f\n", (double)_current_waypoint(0), (double)_current_waypoint(1));
-	// printf("Current waypoint (local): %f, %f\n", (double)current_waypoint(0), (double)current_waypoint(1));
-
 
 	_current_waypoint = current_waypoint;
 }
@@ -201,15 +151,4 @@ void BoatGuidance::updateParams()
 
 	_l1_guidance.set_l1_damping(_param_bt_l1_damping.get());
 	_l1_guidance.set_l1_period(_param_bt_l1_period.get());
-
-	pid_set_parameters(&_heading_p_controller,
-			   _param_rdd_p_gain_heading.get(),  // Proportional gain
-			   0,  // Integral gain
-			   0,  // Derivative gain
-			   0,  // Integral limit
-			   200);  // Output limit
-
-	_forwards_velocity_smoothing.setMaxJerk(_param_rdd_max_jerk.get());
-	_forwards_velocity_smoothing.setMaxAccel(_param_rdd_max_accel.get());
-	_forwards_velocity_smoothing.setMaxVel(_max_speed);
 }

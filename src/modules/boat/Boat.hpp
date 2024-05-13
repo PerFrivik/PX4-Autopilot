@@ -84,8 +84,6 @@ private:
 
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Publication<boat_setpoint_s> _boat_setpoint_pub{ORB_ID(boat_setpoint)};
-	// uORB::PublicationMulti<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
-	// uORB::PublicationMulti<actuator_servos_s> _actuator_servos_pub{ORB_ID(actuator_servos)};
 
 	bool _manual_driving = false;
 	bool _mission_driving = false;
