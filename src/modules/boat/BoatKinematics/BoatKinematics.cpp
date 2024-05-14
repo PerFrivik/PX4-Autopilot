@@ -56,7 +56,6 @@ void BoatKinematics::allocate()
 
 	if (!_armed || setpoint_timeout) {
 		boat_output = {}; // stop
-		printf("setpoint timed out \n");
 	}
 
 	boat_output = matrix::constrain(boat_output, -1.f, 1.f);
@@ -85,8 +84,6 @@ matrix::Vector2f BoatKinematics::computeInverseKinematics(float linear_velocity_
 
 	float throttle = linear_velocity_x / _max_speed;
 	float rudder_angle = yaw_rate / _max_angular_velocity;
-
-	printf("throttle: %f, rudder_angle: %f \n", (double)throttle, (double)rudder_angle);
 
 	// Calculate the left and right wheel speeds
 	return Vector2f(throttle, rudder_angle);

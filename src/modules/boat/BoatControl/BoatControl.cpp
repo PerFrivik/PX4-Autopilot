@@ -46,18 +46,18 @@ void BoatControl::updateParams()
 	ModuleParams::updateParams();
 
 	pid_set_parameters(&_pid_angular_velocity,
-			   _param_rdd_p_gain_angular_velocity.get(), // Proportional gain
-			   _param_rdd_i_gain_angular_velocity.get(), // Integral gain
-			   0, // Derivative gain
-			   20, // Integral limit
-			   200); // Output limit
+			   _param_bt_ang_p.get(),
+			   _param_bt_ang_i.get(),
+			   0,
+			   _param_bt_ang_imax.get(),
+			   _param_bt_ang_outlim.get());
 
 	pid_set_parameters(&_pid_speed,
-			   _param_rdd_p_gain_speed.get(), // Proportional gain
-			   _param_rdd_i_gain_speed.get(), // Integral gain
-			   0, // Derivative gain
-			   2, // Integral limit
-			   200); // Output limit
+			   _param_bt_spd_p.get(),
+			   _param_bt_spd_i.get(),
+			   0,
+			   _param_bt_spd_imax.get(),
+			   _param_bt_spd_outlim.get());
 }
 
 void BoatControl::control(float dt)
@@ -83,6 +83,7 @@ void BoatControl::control(float dt)
 		vehicle_local_position_s vehicle_local_position{};
 
 		if (_vehicle_local_position_sub.copy(&vehicle_local_position)) {
+			_vehicle_local_position = vehicle_local_position;
 			Vector3f velocity_in_local_frame(vehicle_local_position.vx, vehicle_local_position.vy, vehicle_local_position.vz);
 			Vector3f velocity_in_body_frame = _vehicle_attitude_quaternion.rotateVectorInverse(velocity_in_local_frame);
 			_vehicle_forward_speed = velocity_in_body_frame(0);

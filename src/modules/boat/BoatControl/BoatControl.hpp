@@ -49,6 +49,8 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_local_position.h>
 
+using namespace matrix;
+
 class BoatControl : public ModuleParams
 {
 public:
@@ -58,6 +60,7 @@ public:
 	void control(float dt);
 	float getVehicleBodyYawRate() const { return _vehicle_body_yaw_rate; }
 	float getVehicleYaw() const { return _vehicle_yaw; }
+	vehicle_local_position_s getLocalPosition() const { return _vehicle_local_position; }
 
 protected:
 	void updateParams() override;
@@ -75,17 +78,24 @@ private:
 	matrix::Quatf _vehicle_attitude_quaternion{};
 	float _vehicle_yaw{0.f};
 
+
 	// States
 	float _vehicle_body_yaw_rate{0.f};
 	float _vehicle_forward_speed{0.f};
+	Vector2f _vehicle_speed{0.f, 0.f};
+	vehicle_local_position_s _vehicle_local_position{};
 
 	PID_t _pid_angular_velocity; ///< The PID controller for yaw rate.
 	PID_t _pid_speed; ///< The PID controller for velocity.
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RDD_P_SPEED>) _param_rdd_p_gain_speed,
-		(ParamFloat<px4::params::RDD_I_SPEED>) _param_rdd_i_gain_speed,
-		(ParamFloat<px4::params::RDD_P_ANG_VEL>) _param_rdd_p_gain_angular_velocity,
-		(ParamFloat<px4::params::RDD_I_ANG_VEL>) _param_rdd_i_gain_angular_velocity
+		(ParamFloat<px4::params::BT_SPD_P>) _param_bt_spd_p,
+		(ParamFloat<px4::params::BT_SPD_I>) _param_bt_spd_i,
+		(ParamFloat<px4::params::BT_SPD_IMAX>) _param_bt_spd_imax,
+		(ParamFloat<px4::params::BT_SPD_OUTLIM>) _param_bt_spd_outlim,
+		(ParamFloat<px4::params::BT_ANG_P>) _param_bt_ang_p,
+		(ParamFloat<px4::params::BT_ANG_I>) _param_bt_ang_i,
+		(ParamFloat<px4::params::BT_ANG_IMAX>) _param_bt_ang_imax,
+		(ParamFloat<px4::params::BT_ANG_OUTLIM>) _param_bt_ang_outlim
 	)
 };

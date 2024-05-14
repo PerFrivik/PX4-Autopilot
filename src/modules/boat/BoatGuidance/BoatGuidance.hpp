@@ -49,18 +49,18 @@
 #include <uORB/topics/boat_setpoint.h>
 #include <uORB/topics/position_setpoint_triplet.h>
 #include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_local_position.h>
 
 #include <lib/pid/pid.h>
 #include <lib/l1/ECL_L1_Pos_Controller.hpp>
 
-
-
+using namespace matrix;
 /**
  * @brief Enum class for the different states of guidance.
  */
 enum class GuidanceState {
-	// TURNING, ///< The vehicle is currently turning.
 	DRIVING, ///< The vehicle is currently driving straight.
+	DRIVING_TO_POINT, ///< The vehicle is currently driving to the next waypoint.
 	GOAL_REACHED ///< The vehicle has reached its goal.
 };
 
@@ -87,7 +87,7 @@ public:
 	 * @param angular_velocity The angular velocity of the vehicle in rad/s.
 	 * @param dt The time step in seconds.
 	 */
-	void computeGuidance(float yaw, float angular_velocity, float dt);
+	void computeGuidance(float yaw, float angular_velocity, vehicle_local_position_s vehicle_local_position, float dt);
 
 	/**
 	 * @brief Set the maximum speed for the vehicle.
@@ -133,14 +133,11 @@ private:
 
 	PID_t _heading_p_controller; ///< The PID controller for yaw rate.
 
-	enum WAYPOINT_CONTROL_STATE {
-		NONE,
-		LOITERING,
-		BOATING_TO_A_POINT,
-		BOATING_ON_A_LINE
-	} _wp_ctrl_state{WAYPOINT_CONTROL_STATE::NONE};
-
 	ECL_L1_Pos_Controller _l1_guidance;
+
+	Vector2f _previous_local_position{};
+
+	MapProjection _global_local_proj_ref{};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::RDD_P_HEADING>) _param_rdd_p_gain_heading,
@@ -151,41 +148,11 @@ private:
 		(ParamFloat<px4::params::BT_L1_PERIOD>) _param_bt_l1_period,
 		(ParamFloat<px4::params::BT_L1_DAMPING>) _param_bt_l1_damping,
 
-		(ParamFloat<px4::params::BT_SPD_CRUISE>) _param_bt_spd_cruise,
-		(ParamFloat<px4::params::BT_SPD_LIM>) _param_bt_spd_lim,
-		(ParamFloat<px4::params::BT_SPD_MAX>) _param_bt_spd_max,
-		(ParamFloat<px4::params::BT_SPD_IDLE>) _param_bt_spd_idle,
-		(ParamFloat<px4::params::BT_SPD_SLEW>) _param_bt_spd_slew,
-
-		(ParamFloat<px4::params::BT_SPD_P>) _param_bt_spd_p,
-		(ParamFloat<px4::params::BT_SPD_I>) _param_bt_spd_i,
-		(ParamFloat<px4::params::BT_SPD_IMAX>) _param_bt_spd_imax,
-		(ParamFloat<px4::params::BT_SPD_OUTLIM>) _param_bt_spd_outlim,
-
-		(ParamFloat<px4::params::BT_THR_LIM>) _param_bt_thr_lim,
-		(ParamFloat<px4::params::BT_THR_SLEW>) _param_bt_thr_slew,
-
-		(ParamFloat<px4::params::BT_LACC_LIM>) _param_bt_lacc_lim,
-		(ParamFloat<px4::params::BT_LACC_SLEW>) _param_bt_lacc_slew,
-
-		(ParamFloat<px4::params::BT_LACC_P>) _param_bt_lacc_p,
-		(ParamFloat<px4::params::BT_LACC_I>) _param_bt_lacc_i,
-		(ParamFloat<px4::params::BT_LACC_IMAX>) _param_bt_lacc_imax,
-		(ParamFloat<px4::params::BT_YAWRATE_FF>) _param_bt_yawrate_ff,
-		(ParamFloat<px4::params::BT_LACC_OUTLIM>) _param_bt_lacc_outlim,
-
-		(ParamFloat<px4::params::BT_STR_GAIN>) _param_bt_str_gain,
-		(ParamFloat<px4::params::BT_STR_SLEW>) _param_bt_str_slew,
-		(ParamFloat<px4::params::BT_STR_DZ>) _param_bt_str_dz,
-
-		(ParamBool<px4::params::BT_CCTRL_EN>) _param_bt_cctrl_en,
-		(ParamInt<px4::params::BT_CCTRL_BTN>) _param_bt_cctrl_btn,
-
 		(ParamFloat<px4::params::BT_MAX_HERR>) _param_bt_max_heading_error,
 		(ParamFloat<px4::params::BT_MIN_HERR>) _param_bt_min_heading_error,
-		(ParamFloat<px4::params::BT_MISSION_THR>) _param_bt_mission_throttle,
-		(ParamFloat<px4::params::BT_MIN_THR>) _param_bt_min_throttle,
-
-		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad	/**< loiter radius for Rover */
+		(ParamFloat<px4::params::BT_SPD_MAX>) _param_bt_spd_max,
+		(ParamFloat<px4::params::BT_SPD_MIN>) _param_bt_spd_min,
+		(ParamFloat<px4::params::BT_SPD_CRUISE>) _param_bt_spd_cruise,
+		(ParamFloat<px4::params::NAV_LOITER_RAD>) _param_nav_loiter_rad
 	)
 };

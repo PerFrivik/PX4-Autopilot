@@ -46,7 +46,8 @@ BoatGuidance::BoatGuidance(ModuleParams *parent) : ModuleParams(parent)
 	pid_init(&_heading_p_controller, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
-void BoatGuidance::computeGuidance(float yaw, float angular_velocity, float dt)
+void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_local_position_s vehicle_local_position,
+				   float dt)
 {
 	if (_position_setpoint_triplet_sub.updated()) {
 		_position_setpoint_triplet_sub.copy(&_position_setpoint_triplet);
@@ -56,19 +57,40 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, float dt)
 		_vehicle_global_position_sub.copy(&_vehicle_global_position);
 	}
 
-	matrix::Vector2d global_position(_vehicle_global_position.lat, _vehicle_global_position.lon);
-	matrix::Vector2d current_waypoint(_position_setpoint_triplet.current.lat, _position_setpoint_triplet.current.lon);
-	matrix::Vector2d next_waypoint(_position_setpoint_triplet.next.lat, _position_setpoint_triplet.next.lon);
+	const matrix::Vector2d global_position(_vehicle_global_position.lat, _vehicle_global_position.lon);
+	const matrix::Vector2d current_waypoint(_position_setpoint_triplet.current.lat, _position_setpoint_triplet.current.lon);
+	const matrix::Vector2d next_waypoint(_position_setpoint_triplet.next.lat, _position_setpoint_triplet.next.lon);
+	const matrix::Vector2d previous_waypoint(_position_setpoint_triplet.previous.lat,
+			_position_setpoint_triplet.previous.lon);
 
-	const float distance_to_next_wp = get_distance_to_next_waypoint(global_position(0), global_position(1),
-					  current_waypoint(0),
-					  current_waypoint(1));
+	if (!_global_local_proj_ref.isInitialized()
+	    || (_global_local_proj_ref.getProjectionReferenceTimestamp() != vehicle_local_position.timestamp)) {
+		_global_local_proj_ref.initReference(vehicle_local_position.ref_lat, vehicle_local_position.ref_lon,
+						     vehicle_local_position.timestamp);
+	}
 
-	float desired_heading = get_bearing_to_next_waypoint(global_position(0), global_position(1), current_waypoint(0),
-				current_waypoint(1));
+	const Vector2f current_waypoint_local_position = _global_local_proj_ref.project(current_waypoint(0),
+			current_waypoint(1));
+	// const Vector2f next_waypoint_local_position = _global_local_proj_ref.project(next_waypoint(0), next_waypoint(1));
+	const Vector2f previous_waypoint_local_position = _global_local_proj_ref.project(previous_waypoint(0),
+			previous_waypoint(1));
+	const Vector2f local_position = Vector2f(vehicle_local_position.x, vehicle_local_position.y);
+	const Vector2f local_velocity = Vector2f(vehicle_local_position.vx, vehicle_local_position.vy);
+
+	const float distance_to_next_wp = get_distance_to_next_waypoint(local_position(0), local_position(1),
+					  current_waypoint_local_position(0),
+					  current_waypoint_local_position(1));
+
+	float desired_heading = get_bearing_to_next_waypoint(global_position(0), global_position(1), next_waypoint(0),
+				next_waypoint(1));
 	float heading_error = matrix::wrap_pi(desired_heading - yaw);
 
+	// printf("desired heading: %f\n", (double)desired_heading);
+	// printf("yaw: %f\n", (double)yaw);
+	// printf("heading error: %f\n", (double)heading_error);
+
 	if (_current_waypoint != current_waypoint) {
+		printf("switching back to driving\n");
 		_currentState = GuidanceState::DRIVING;
 	}
 
@@ -77,26 +99,63 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, float dt)
 		_currentState = GuidanceState::GOAL_REACHED;
 	}
 
-	float desired_speed = 0.f;
+	_forwards_velocity_smoothing.updateDurations(_max_speed);
+	_forwards_velocity_smoothing.updateTraj(dt);
+
+	float speed_interpolation = 0.f;
+
+	if (PX4_ISFINITE(heading_error)) {
+		speed_interpolation = math::interpolate<float>(abs(heading_error), _param_bt_min_heading_error.get() * M_PI_F / 180.f,
+				      _param_bt_max_heading_error.get() * M_PI_F / 180.f, _param_bt_spd_cruise.get(),
+				      _param_bt_spd_min.get());
+	}
+
+	printf("speed interpolation: %f\n", (double)speed_interpolation);
+
+	float desired_speed = math::constrain(speed_interpolation, _param_bt_spd_min.get(), _max_speed);
+
+	printf("desired_speed: %f\n", (double)desired_speed);
 
 	switch (_currentState) {
 	case GuidanceState::DRIVING: {
 
-			const float max_velocity = _param_bt_spd_cruise.get();
-			_forwards_velocity_smoothing.updateDurations(max_velocity);
-			_forwards_velocity_smoothing.updateTraj(dt);
+			// _forwards_velocity_smoothing.updateDurations(_max_speed);
+			// _forwards_velocity_smoothing.updateTraj(dt);
 
-			desired_speed = math::interpolate<float>(abs(heading_error), _param_bt_min_heading_error.get(),
-					_param_bt_max_heading_error.get(), _param_bt_mission_throttle.get() * max_velocity,
-					_param_bt_min_throttle.get() * max_velocity);
+			// float speed_interpolation = math::interpolate<float>(abs(heading_error), _param_bt_min_heading_error.get(),
+			// 			    _param_bt_max_heading_error.get(), _param_bt_spd_cruise.get(),
+			// 			    _param_bt_spd_min.get());
 
-			float lat_accel_sp = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_param_bt_lacc_lim.get(),
-							     _param_bt_lacc_lim.get());
+			// desired_speed = math::constrain(speed_interpolation, _param_bt_spd_min.get(), _max_speed);
 
-			_desired_angular_velocity = math::constrain(lat_accel_sp, -_param_bt_lacc_lim.get(), _param_bt_lacc_lim.get());
+			if (PX4_ISFINITE(previous_waypoint(0)) && PX4_ISFINITE(previous_waypoint(1))) {
+				_l1_guidance.navigate_waypoints(previous_waypoint_local_position, current_waypoint_local_position, local_position,
+								local_velocity);
+				printf("driving\n");
+
+			} else {
+				_previous_local_position = local_position;
+				_currentState = GuidanceState::DRIVING_TO_POINT;
+				printf("switched to driving to point\n");
+			}
+
+			// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
+			// 			    _max_angular_velocity);
 
 			break;
 		}
+
+	case GuidanceState::DRIVING_TO_POINT:
+		// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
+		// 			    _max_angular_velocity);
+		printf("driving to point\n");
+		printf("Previous local position: %f, %f\n", (double)_previous_local_position(0), (double)_previous_local_position(1));
+		printf("Current waypoint local position: %f, %f\n", (double)current_waypoint_local_position(0),
+		       (double)current_waypoint_local_position(1));
+		_l1_guidance.navigate_waypoints(_previous_local_position, current_waypoint_local_position, local_position,
+						local_velocity);
+		desired_speed = _param_bt_spd_cruise.get();
+		break;
 
 	case GuidanceState::GOAL_REACHED:
 		// temporary till I find a better way to stop the vehicle
@@ -104,20 +163,34 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, float dt)
 		heading_error = 0.f;
 		angular_velocity = 0.f;
 		_desired_angular_velocity = 0.f;
+		printf("angular velocity: %f \n", (double)angular_velocity);
 		break;
 	}
 
+	_desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
+				    _max_angular_velocity);
+
 	// Compute the desired angular velocity relative to the heading error, to steer the vehicle towards the next waypoint.
-	float angular_velocity_pid = pid_calculate(&_heading_p_controller, heading_error, angular_velocity, 0,
-				     dt) + heading_error;
+	// float angular_velocity_pid = pid_calculate(&_heading_p_controller, heading_error, angular_velocity, 0,
+	// 			     dt) + heading_error;
+
+	// angular_velocity = angular_velocity + _desired_angular_velocity;
+
+	printf("desired speed: %f\n", (double)desired_speed);
+	printf("desired angular velocity: %f\n", (double)_desired_angular_velocity);
+	printf("angular velocity: %f \n", (double)angular_velocity);
 
 	boat_setpoint_s output{};
 	output.speed = math::constrain(desired_speed, -_max_speed, _max_speed);
-	output.yaw_rate = math::constrain(angular_velocity_pid, -_max_angular_velocity, _max_angular_velocity);
+	output.yaw_rate = math::constrain(_desired_angular_velocity, -_max_angular_velocity, _max_angular_velocity);
 	output.closed_loop_speed_control = output.closed_loop_yaw_rate_control = true;
 	output.timestamp = hrt_absolute_time();
 
 	_boat_setpoint_pub.publish(output);
+
+	printf("Current waypoint (global): %f, %f\n", (double)_current_waypoint(0), (double)_current_waypoint(1));
+	printf("Current waypoint (local): %f, %f\n", (double)current_waypoint(0), (double)current_waypoint(1));
+
 
 	_current_waypoint = current_waypoint;
 }
