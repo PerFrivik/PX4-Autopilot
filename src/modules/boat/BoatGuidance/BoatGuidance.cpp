@@ -46,7 +46,7 @@ BoatGuidance::BoatGuidance(ModuleParams *parent) : ModuleParams(parent)
 	pid_init(&_heading_p_controller, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
-void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_local_position_s vehicle_local_position,
+void BoatGuidance::computeGuidance(float yaw, vehicle_local_position_s vehicle_local_position,
 				   float dt)
 {
 	if (_position_setpoint_triplet_sub.updated()) {
@@ -90,7 +90,7 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 	// printf("heading error: %f\n", (double)heading_error);
 
 	if (_current_waypoint != current_waypoint) {
-		printf("switching back to driving\n");
+		// printf("switching back to driving\n");
 		_currentState = GuidanceState::DRIVING;
 	}
 
@@ -110,11 +110,11 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 				      _param_bt_spd_min.get());
 	}
 
-	printf("speed interpolation: %f\n", (double)speed_interpolation);
+	// printf("speed interpolation: %f\n", (double)speed_interpolation);
 
 	float desired_speed = math::constrain(speed_interpolation, _param_bt_spd_min.get(), _max_speed);
 
-	printf("desired_speed: %f\n", (double)desired_speed);
+	// printf("desired_speed: %f\n", (double)desired_speed);
 
 	switch (_currentState) {
 	case GuidanceState::DRIVING: {
@@ -131,12 +131,12 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 			if (PX4_ISFINITE(previous_waypoint(0)) && PX4_ISFINITE(previous_waypoint(1))) {
 				_l1_guidance.navigate_waypoints(previous_waypoint_local_position, current_waypoint_local_position, local_position,
 								local_velocity);
-				printf("driving\n");
+				// printf("driving\n");
 
 			} else {
 				_previous_local_position = local_position;
 				_currentState = GuidanceState::DRIVING_TO_POINT;
-				printf("switched to driving to point\n");
+				// printf("switched to driving to point\n");
 			}
 
 			// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
@@ -148,10 +148,10 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 	case GuidanceState::DRIVING_TO_POINT:
 		// _desired_angular_velocity = math::constrain(_l1_guidance.nav_lateral_acceleration_demand(), -_max_angular_velocity,
 		// 			    _max_angular_velocity);
-		printf("driving to point\n");
-		printf("Previous local position: %f, %f\n", (double)_previous_local_position(0), (double)_previous_local_position(1));
-		printf("Current waypoint local position: %f, %f\n", (double)current_waypoint_local_position(0),
-		       (double)current_waypoint_local_position(1));
+		// printf("driving to point\n");
+		// printf("Previous local position: %f, %f\n", (double)_previous_local_position(0), (double)_previous_local_position(1));
+		// printf("Current waypoint local position: %f, %f\n", (double)current_waypoint_local_position(0),
+		//        (double)current_waypoint_local_position(1));
 		_l1_guidance.navigate_waypoints(_previous_local_position, current_waypoint_local_position, local_position,
 						local_velocity);
 		desired_speed = _param_bt_spd_cruise.get();
@@ -161,9 +161,9 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 		// temporary till I find a better way to stop the vehicle
 		desired_speed = 0.f;
 		heading_error = 0.f;
-		angular_velocity = 0.f;
+		// angular_velocity = 0.f;
 		_desired_angular_velocity = 0.f;
-		printf("angular velocity: %f \n", (double)angular_velocity);
+		// printf("angular velocity: %f \n", (double)angular_velocity);
 		break;
 	}
 
@@ -176,9 +176,9 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 
 	// angular_velocity = angular_velocity + _desired_angular_velocity;
 
-	printf("desired speed: %f\n", (double)desired_speed);
-	printf("desired angular velocity: %f\n", (double)_desired_angular_velocity);
-	printf("angular velocity: %f \n", (double)angular_velocity);
+	// printf("desired speed: %f\n", (double)desired_speed);
+	// printf("desired angular velocity: %f\n", (double)_desired_angular_velocity);
+	// printf("angular velocity: %f \n", (double)angular_velocity);
 
 	boat_setpoint_s output{};
 	output.speed = math::constrain(desired_speed, -_max_speed, _max_speed);
@@ -188,8 +188,8 @@ void BoatGuidance::computeGuidance(float yaw, float angular_velocity, vehicle_lo
 
 	_boat_setpoint_pub.publish(output);
 
-	printf("Current waypoint (global): %f, %f\n", (double)_current_waypoint(0), (double)_current_waypoint(1));
-	printf("Current waypoint (local): %f, %f\n", (double)current_waypoint(0), (double)current_waypoint(1));
+	// printf("Current waypoint (global): %f, %f\n", (double)_current_waypoint(0), (double)_current_waypoint(1));
+	// printf("Current waypoint (local): %f, %f\n", (double)current_waypoint(0), (double)current_waypoint(1));
 
 
 	_current_waypoint = current_waypoint;

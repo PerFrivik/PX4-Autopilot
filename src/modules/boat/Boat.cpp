@@ -133,7 +133,6 @@ void Boat::Run()
 		printf("I'm in mission mode\n");
 		_boat_guidance.computeGuidance(
 			_boat_control.getVehicleYaw(),
-			_boat_control.getVehicleBodyYawRate(),
 			_boat_control.getLocalPosition(),
 			dt
 		);

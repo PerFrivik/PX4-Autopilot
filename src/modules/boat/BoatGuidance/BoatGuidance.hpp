@@ -87,7 +87,7 @@ public:
 	 * @param angular_velocity The angular velocity of the vehicle in rad/s.
 	 * @param dt The time step in seconds.
 	 */
-	void computeGuidance(float yaw, float angular_velocity, vehicle_local_position_s vehicle_local_position, float dt);
+	void computeGuidance(float yaw, vehicle_local_position_s vehicle_local_position, float dt);
 
 	/**
 	 * @brief Set the maximum speed for the vehicle.

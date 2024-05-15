@@ -46,6 +46,7 @@ px4_add_module(
 		BoatGuidance
 		BoatKinematics
 		px4_work_queue
+		l1
 		# modules__control_allocator # for parameter CA_R_REV
 	MODULE_CONFIG
 		module.yaml
